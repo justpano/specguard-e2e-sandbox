@@ -1,0 +1,23 @@
+name: SpecGuard pull request analysis
+description: Sends a bounded, signed pull request diff to a SpecGuard Forge installation.
+author: SpecGuard
+inputs:
+  endpoint:
+    description: Installation-specific SpecGuard Forge webtrigger URL.
+    required: true
+  secret:
+    description: Installation secret generated in the SpecGuard Jira admin page.
+    required: true
+  github-token:
+    description: GitHub token used only to read pull request file patches.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Send bounded PR context to SpecGuard
+      shell: bash
+      env:
+        SPECGUARD_ENDPOINT: ${{ inputs.endpoint }}
+        SPECGUARD_SECRET: ${{ inputs.secret }}
+        SPECGUARD_GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: node "${GITHUB_ACTION_PATH}/send.mjs"
