@@ -24,9 +24,33 @@ async function githubJson(url, token) {
     },
   });
   if (!response.ok) {
-    throw new Error(`GitHub PR files request failed with HTTP ${response.status}.`);
+    throw new Error(`GitHub pull request API request failed with HTTP ${response.status}.`);
   }
   return response.json();
+}
+
+function assertCurrentPullRequestHead(pullRequest, expectedHeadSha) {
+  const currentHeadSha = pullRequest?.head?.sha;
+  if (typeof currentHeadSha !== 'string' || currentHeadSha.length === 0) {
+    throw new Error('GitHub returned an unexpected pull request response.');
+  }
+  if (currentHeadSha !== expectedHeadSha) {
+    throw new Error(
+      'SpecGuard refused a stale workflow event because the pull request head SHA has changed. Run the latest workflow instead.',
+    );
+  }
+}
+
+async function verifyCurrentPullRequestHead({
+  apiUrl,
+  repository,
+  pullRequestNumber,
+  expectedHeadSha,
+  token,
+}) {
+  const requestUrl = `${apiUrl}/repos/${repository}/pulls/${pullRequestNumber}`;
+  const pullRequest = await githubJson(requestUrl, token);
+  assertCurrentPullRequestHead(pullRequest, expectedHeadSha);
 }
 
 async function collectChangedFiles({ apiUrl, repository, pullRequestNumber, token }) {
@@ -112,8 +136,17 @@ async function run() {
 
   const repository = String(event.repository.full_name).toLowerCase();
   const pullRequestNumber = Number(event.pull_request.number);
+  const headSha = String(event.pull_request.head.sha);
+  const apiUrl = process.env.GITHUB_API_URL ?? 'https://api.github.com';
+  await verifyCurrentPullRequestHead({
+    apiUrl,
+    repository,
+    pullRequestNumber,
+    expectedHeadSha: headSha,
+    token,
+  });
   const collected = await collectChangedFiles({
-    apiUrl: process.env.GITHUB_API_URL ?? 'https://api.github.com',
+    apiUrl,
     repository,
     pullRequestNumber,
     token,
@@ -127,7 +160,7 @@ async function run() {
       url: String(event.pull_request.html_url),
       title: String(event.pull_request.title ?? '').slice(0, 1024),
       body: String(event.pull_request.body ?? '').slice(0, 4000),
-      headSha: String(event.pull_request.head.sha),
+      headSha,
       baseSha: String(event.pull_request.base.sha),
       branch: String(event.pull_request.head.ref).slice(0, 512),
     },
