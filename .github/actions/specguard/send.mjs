@@ -15,6 +15,19 @@ function assertEndpoint(endpoint) {
   return url;
 }
 
+function formatRejectionMessage(status, responseBody) {
+  let diagnostic = 'UNKNOWN_ERROR';
+  try {
+    const parsed = JSON.parse(responseBody);
+    if (typeof parsed?.error === 'string' && parsed.error.length > 0) {
+      diagnostic = parsed.error;
+    }
+  } catch {
+    // A bounded diagnostic is safer than echoing an arbitrary upstream response.
+  }
+  return `SpecGuard rejected the request with HTTP ${status} (${diagnostic}).`;
+}
+
 async function githubJson(url, token) {
   const response = await fetch(url, {
     headers: {
@@ -187,9 +200,7 @@ async function run() {
     body,
   });
   if (response.status !== 202) {
-    throw new Error(
-      `SpecGuard rejected the request with HTTP ${response.status}. Check the mapping, Jira key, endpoint, and secret.`,
-    );
+    throw new Error(formatRejectionMessage(response.status, await response.text()));
   }
   console.log(`SpecGuard accepted PR #${pullRequestNumber} for bounded asynchronous analysis.`);
 }
