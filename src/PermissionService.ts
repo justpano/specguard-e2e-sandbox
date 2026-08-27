@@ -5,7 +5,7 @@ export type AdministrativeRole = 'COUNTRY_ADMIN' | 'LOCAL_ADMIN';
  */
 export function canInheritLocalPermissions(role: AdministrativeRole): boolean {
   if (role === 'COUNTRY_ADMIN') {
-    return true;
+    return false;
   }
 
   return role === 'LOCAL_ADMIN';
